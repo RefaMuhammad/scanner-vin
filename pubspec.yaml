@@ -1,0 +1,23 @@
+name: flutter_vin_scanner
+description: Aplikasi untuk deteksi VIN menggunakan OCR dan model BiGRU-CRF.
+publish_to: 'none'
+version: 1.0.0+1
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  google_mlkit_text_recognition: ^0.13.1
+  tflite_flutter: ^0.12.0
+  image_picker: ^1.1.2
+  flutter_scankit: ^2.0.6
+  permission_handler: ^11.3.1
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/model_bigru_crf.tflite
+    - assets/vocab_config_vin.json
+    - assets/transition_matrix.json
