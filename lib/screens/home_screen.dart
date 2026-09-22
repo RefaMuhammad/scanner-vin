@@ -64,9 +64,9 @@ class _HomeScreenState extends State<HomeScreen> {
         MaterialPageRoute(builder: (context) => const BarcodeScannerScreen()),
       );
 
-      if (result == "TIMEOUT" || result == "CANCEL" || result == null) {
-        _showOcrFallbackDialog();
-      } else {
+      if (result == "SWITCH_OCR") {
+        _processImage(ImageSource.camera);
+      } else if (result != "CANCEL" && result != null) {
         _processExtractedText(result.toString(), isOcr: false, ocrDurationMs: null);
       }
     } else if (status.isPermanentlyDenied) {
@@ -383,6 +383,7 @@ class BarcodeScannerScreen extends StatefulWidget {
 class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
   late ScanKitController _controller;
   Timer? _timeoutTimer;
+  bool _showOcrPrompt = false;
 
   @override
   void initState() {
@@ -398,9 +399,16 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
       }
     });
 
+    _startTimeoutTimer();
+  }
+
+  void _startTimeoutTimer() {
+    _timeoutTimer?.cancel();
     _timeoutTimer = Timer(const Duration(seconds: 10), () {
       if (mounted) {
-        Navigator.pop(context, "TIMEOUT");
+        setState(() {
+          _showOcrPrompt = true;
+        });
       }
     });
   }
@@ -414,6 +422,13 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final boxSize = screenWidth * 0.7;
+    final left = screenWidth / 2 - boxSize / 2;
+    final top = screenHeight / 2 - boxSize / 2;
+    final rect = Rect.fromLTWH(left, top, boxSize, boxSize);
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
@@ -421,6 +436,7 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
           ScanKitWidget(
             controller: _controller,
             continuouslyScan: false,
+            boundingBox: rect,
           ),
           SafeArea(
             child: Align(
@@ -433,20 +449,76 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
               ),
             ),
           ),
-          const SafeArea(
+          Align(
+            alignment: Alignment.center,
+            child: Container(
+              width: boxSize,
+              height: boxSize,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.teal, width: 2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+          SafeArea(
             child: Align(
               alignment: Alignment.bottomCenter,
               child: Padding(
-                padding: EdgeInsets.only(bottom: 40.0),
-                child: Text(
-                  "Arahkan kamera ke Barcode\n(Otomatis beralih ke OCR dalam 10 detik)",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    shadows: [Shadow(color: Colors.black, blurRadius: 8)],
-                  ),
-                ),
+                padding: const EdgeInsets.only(bottom: 40.0),
+                child: _showOcrPrompt
+                    ? Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 20),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10)],
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                              "Barcode tidak terbaca.\nGanti ke pemindaian OCR?",
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                OutlinedButton(
+                                  onPressed: () {
+                                    setState(() {
+                                      _showOcrPrompt = false;
+                                      _startTimeoutTimer();
+                                    });
+                                  },
+                                  child: const Text("Lanjut Scan"),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    Navigator.pop(context, "SWITCH_OCR");
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.teal,
+                                    foregroundColor: Colors.white,
+                                  ),
+                                  child: const Text("Ganti OCR"),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      )
+                    : const Text(
+                        "Arahkan kamera ke Barcode\n(Pastikan barcode berada di dalam kotak)",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          shadows: [Shadow(color: Colors.black, blurRadius: 8)],
+                        ),
+                      ),
               ),
             ),
           ),
